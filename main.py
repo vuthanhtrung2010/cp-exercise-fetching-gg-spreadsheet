@@ -25,21 +25,23 @@ def find_col_index(header, pattern):
 
 header = rows[0]
 idx_sbd = find_col_index(header, r"\b(số báo danh|sbd)\b")
-# idx_lang = find_col_index(header, r"ngôn ngữ")
+idx_lang = find_col_index(header, r"\b(ngôn ngữ|ext\w*)\b")
 idx_mabai = find_col_index(header, r"mã bài")
 idx_code = find_col_index(header, r"\bcode\b")
 
 for row in rows[1:]:
     sbd = row[idx_sbd]
-    # lang = row[idx_lang].lower()
+    lang = row[idx_lang].lower().strip()
     mabai = row[idx_mabai]
     code = row[idx_code]
 
-    # ext_map = {"c++": "cpp", "cpp": "cpp", "python": "py"}
-    # ext = ext_map.get(lang, lang)
-
-    # Default it is always C. As Mr. Hdp said.
-    ext = "c"
+    if "c" in lang:
+        ext = "cpp"
+    elif "py" in lang:
+        ext = "py"
+    else:
+        print(f"⚠️  Unknown language '{lang}' for SBD {sbd}, skipping...")
+        continue
 
     folder = os.path.join("BaiLam", sbd)
     os.makedirs(folder, exist_ok=True)

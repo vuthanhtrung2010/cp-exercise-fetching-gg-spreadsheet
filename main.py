@@ -17,18 +17,21 @@ rows = sheet.get_all_values()
 
 header = rows[0]
 idx_sbd = header.index("Số báo danh")
-idx_lang = header.index("Ngôn ngữ")
+# idx_lang = header.index("Ngôn ngữ")
 idx_mabai = header.index("Mã bài")
 idx_code = header.index("Code")
 
 for row in rows[1:]:
     sbd = row[idx_sbd]
-    lang = row[idx_lang].lower()
+    # lang = row[idx_lang].lower()
     mabai = row[idx_mabai]
     code = row[idx_code]
 
-    ext_map = {"c++": "cpp", "cpp": "cpp", "python": "py"}
-    ext = ext_map.get(lang, lang)
+    # ext_map = {"c++": "cpp", "cpp": "cpp", "python": "py"}
+    # ext = ext_map.get(lang, lang)
+
+    # Default it is always C. As Mr. Hdp said.
+    ext = "c"
 
     folder = os.path.join("BaiLam", sbd)
     os.makedirs(folder, exist_ok=True)

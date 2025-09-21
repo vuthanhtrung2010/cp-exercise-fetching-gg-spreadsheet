@@ -1,6 +1,7 @@
 import gspread
 from google.oauth2.service_account import Credentials
 import os
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -15,11 +16,18 @@ client = gspread.authorize(creds)
 sheet = client.open_by_url(SPREADSHEET_URL).sheet1
 rows = sheet.get_all_values()
 
+# Function to find column index using regex
+def find_col_index(header, pattern):
+    for i, col in enumerate(header):
+        if re.search(pattern, col, re.IGNORECASE):
+            return i
+    raise ValueError(f"No column matching pattern '{pattern}' found.")
+
 header = rows[0]
-idx_sbd = header.index("Số báo danh")
-# idx_lang = header.index("Ngôn ngữ")
-idx_mabai = header.index("Mã bài")
-idx_code = header.index("Code")
+idx_sbd = find_col_index(header, r"\b(số báo danh|sbd)\b")
+# idx_lang = find_col_index(header, r"ngôn ngữ")
+idx_mabai = find_col_index(header, r"mã bài")
+idx_code = find_col_index(header, r"\bcode\b")
 
 for row in rows[1:]:
     sbd = row[idx_sbd]

@@ -19,7 +19,11 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 creds = Credentials.from_service_account_file("service_account.json", scopes=SCOPES)
 client = gspread.authorize(creds)
 
-sheet = client.open_by_url(SPREADSHEET_URL).worksheet(SHEETNAME)
+try:
+    sheet = client.open_by_url(SPREADSHEET_URL).worksheet(SHEETNAME)
+except Exception as e:
+    raise ValueError(f"Cannot open spreadsheet: {e}, maybe the sheet name is wrong?")
+
 rows = sheet.get_all_values()
 
 # Function to find column index using regex

@@ -38,12 +38,23 @@ pip install -r requirements.txt
 
 Just run
 ```bash
-python3 main.py
+python3 main.py collect
+```
+
+You can also mark uncollected submissions to collected without collecting them by
+```bash
+python3 main.py cleanup
 ```
 
 Then the student's submissions will be saved in this folder structure:
 ```
-BaiLam/{Student ID}/{Problem ID}.{ext}
+BaiLam/[x][Student ID][Problem ID].ext
+
+While:
+- `x` is a random number, from 1 -> 1e9.
+- Student ID is the Student ID in the form
+- Problem ID is the problem ID. Typically problem code.
+- `ext` is the extension mapped to the language the student's chose to submit with. For eg: `C / C++` -> `cpp`, `Python` -> `py`,...
 ```
 
 Currently the `{ext}` always `c`.

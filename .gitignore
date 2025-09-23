@@ -7,3 +7,5 @@ BaiLam/
 
 # Stores user's username & password
 users.txt
+
+__pycache__/

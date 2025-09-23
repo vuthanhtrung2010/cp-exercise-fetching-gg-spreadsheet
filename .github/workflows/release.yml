@@ -22,7 +22,7 @@ jobs:
           - os: windows-latest
             arch: amd64
 
-    permissions:
+    permissions: # 👈 Needed so GITHUB_TOKEN can create releases
       contents: write
 
     steps:
@@ -47,13 +47,13 @@ jobs:
         run: |
           cp .env.example dist/
 
-      - name: Create zip
-        run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            7z a main-${{ matrix.os }}-${{ matrix.arch }}.zip dist/*
-          else
-            zip main-${{ matrix.os }}-${{ matrix.arch }}.zip dist/*
-          fi
+      - name: Create zip (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: zip main-${{ matrix.os }}-${{ matrix.arch }}.zip dist/*
+
+      - name: Create zip (Windows)
+        if: runner.os == 'Windows'
+        run: 7z a main-${{ matrix.os }}-${{ matrix.arch }}.zip dist/*
 
       - name: Upload release asset
         uses: softprops/action-gh-release@v2

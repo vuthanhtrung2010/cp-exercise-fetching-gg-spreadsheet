@@ -1,6 +1,35 @@
-# Instructions:
+# CP Exercise Fetching from Google Sheets
 
-In order to use this tool, follow these instructions:
+A tool to collect programming exercise submissions from Google Sheets.
+
+## Installation
+
+### Option 1: From Source
+
+1. Clone the repository:
+```bash
+git clone https://github.com/vuthanhtrung2010/cp-exercise-fetching-gg-spreadsheet.git
+cd cp-exercise-fetching-gg-spreadsheet
+```
+
+2. Create a virtual environment:
+```bash
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+### Option 2: Prebuilt Binaries
+
+Download the latest release from: https://github.com/vuthanhtrung2010/cp-exercise-fetching-gg-spreadsheet/releases
+
+Extract the zip file for your platform and architecture. The executable is standalone but requires `.env` configuration.
+
+## Setup
 
 1. Enable Google Sheets API in Google Cloud Console via this link:
 https://console.cloud.google.com/marketplace/product/google/sheets.googleapis.com
@@ -27,50 +56,53 @@ SPREADSHEET_URL="https://docs.google.com/spreadsheets/d/1aHlwSpm0lzV-ShxF6EGiCvg
 SHEETNAME="test01"
 ```
 
-7. Install deps:
+## User Authentication
 
-It is recommended to create a virtual environment on python. Then you can run
-```bash
-pip install -r requirements.txt
-```
+Create a `users.txt` file with student credentials:
 
-8. Collect student's submissions
-
-Just run
-```bash
-python3 main.py collect
-```
-
-You can also mark uncollected submissions to collected without collecting them by
-```bash
-python3 main.py cleanup
-```
-
-Then the student's submissions will be saved in this folder structure:
-```
-BaiLam/[x][Student ID][Problem ID].ext
-
-While:
-- `x` is a random number, from 1 -> 1e9.
-- Student ID is the Student ID in the form
-- Problem ID is the problem ID. Typically problem code.
-- `ext` is the extension mapped to the language the student's chose to submit with. For eg: `C / C++` -> `cpp`, `Python` -> `py`,...
-```
-
-Currently the `{ext}` always `c`.
-
-# User file format
-
-The users file is the `users.txt` file.
-
-Example:
 ```txt
 user1:pass1
 user2:pass2
 user3:pass3
 ```
 
-Will create following users:
-- Username: `user1`, password: `pass1`
-- Username: `user2`, password: `pass2`
-- Username: `user3`, password: `pass3`
+This creates users with username `user1` and password `pass1`, etc.
+
+## Usage
+
+### Collect Submissions
+
+Collect all new submissions from the Google Sheet:
+
+```bash
+python3 main.py collect
+```
+
+This will:
+- Download code for submissions with date-format timestamps
+- Save files to `BaiLam/` folder with format: `[random][StudentID][ProblemID].ext`
+- Update timestamps to UNIX format to mark as collected
+- Supported languages: C/C++ (.cpp), Python (.py)
+
+### Cleanup Submissions
+
+Mark uncollected submissions as collected without downloading files:
+
+```bash
+python3 main.py cleanup
+```
+
+This will convert any remaining date-format timestamps to UNIX format, effectively marking them as processed without collecting the code.
+
+## Output Structure
+
+Collected submissions are saved in:
+```
+BaiLam/[random_number][StudentID][ProblemID].ext
+```
+
+Where:
+- `random_number`: Random number from 1 to 1e9
+- `StudentID`: Student identifier from sheet
+- `ProblemID`: Problem/exercise identifier
+- `ext`: File extension based on language (cpp, py, etc.)

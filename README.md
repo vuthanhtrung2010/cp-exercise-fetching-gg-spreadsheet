@@ -47,3 +47,19 @@ BaiLam/{Student ID}/{Problem ID}.{ext}
 ```
 
 Currently the `{ext}` always `c`.
+
+# User file format
+
+The users file is the `users.txt` file.
+
+Example:
+```txt
+user1:pass1
+user2:pass2
+user3:pass3
+```
+
+Will create following users:
+- Username: `user1`, password: `pass1`
+- Username: `user2`, password: `pass2`
+- Username: `user3`, password: `pass3`

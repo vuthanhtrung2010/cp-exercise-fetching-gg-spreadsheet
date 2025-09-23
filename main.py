@@ -4,6 +4,8 @@ import os
 import re
 from dotenv import load_dotenv
 import random
+import datetime
+import time
 
 load_dotenv()
 SPREADSHEET_URL = os.getenv("SPREADSHEET_URL")
@@ -15,7 +17,7 @@ if not SHEETNAME:
 if not SPREADSHEET_URL:
     raise ValueError("Missing SPREADSHEET_URL in environment variables")
 
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 creds = Credentials.from_service_account_file("service_account.json", scopes=SCOPES)
 client = gspread.authorize(creds)
 
@@ -34,6 +36,7 @@ def find_col_index(header, pattern):
     raise ValueError(f"No column matching pattern '{pattern}' found.")
 
 header = rows[0]
+idx_timestamp = find_col_index(header, r"\b(dấu thời gian|timestamp)\b")
 idx_sbd = find_col_index(header, r"\b(số báo danh|sbd)\b")
 idx_lang = find_col_index(header, r"\b(ngôn ngữ|ext\w*)\b")
 idx_password = find_col_index(header, r"\b(pass\w*|mật\w*)\b")
@@ -63,7 +66,21 @@ if os.path.exists("BaiLam"):
     shutil.rmtree("BaiLam")
 os.makedirs("BaiLam", exist_ok=True)
 
-for row in rows[1:]:
+# Clear old folder before collect subs
+if os.path.exists("BaiLam"):
+    import shutil
+    shutil.rmtree("BaiLam")
+os.makedirs("BaiLam", exist_ok=True)
+
+for row_num, row in enumerate(rows[1:], start=2):
+    timestamp_str = row[idx_timestamp]
+    try:
+        dt = datetime.datetime.strptime(timestamp_str, "%d/%m/%Y %H:%M:%S")
+        unix_ts = int(time.mktime(dt.timetuple()))
+    except ValueError:
+        print(f"Already collected for SBD {row[idx_sbd]}")
+        continue
+
     sbd = row[idx_sbd] # Username
     password = row[idx_password] # Password
     lang = row[idx_lang].lower().strip() # Language
@@ -107,3 +124,6 @@ for row in rows[1:]:
         f.write(code)
 
     print(f"✅ Saved {filepath}")
+
+    # Update timestamp to UNIX
+    sheet.update_cell(row_num, idx_timestamp + 1, unix_ts)

@@ -20,10 +20,11 @@ Copy the `.env.example` file by
 cp .env.example .env
 ```
 
-And then add your spreadsheet URL, for eg:
+And then add your spreadsheet URL and your target sheetname, for eg:
 
 ```env
-SPREADSHEET_URL="https://docs.google.com/spreadsheets/d/1587XEUr1Ji7E-x0IL5QT5pm1yndO8miq1YIO3cDxe7I/edit#gid=1715562023"
+SPREADSHEET_URL="https://docs.google.com/spreadsheets/d/1aHlwSpm0lzV-ShxF6EGiCvgDC-IrgAZLqwSHMkqXYlo/edit?usp=sharing"
+SHEETNAME="test01"
 ```
 
 7. Install deps:

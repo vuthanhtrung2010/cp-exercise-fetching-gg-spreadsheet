@@ -69,10 +69,10 @@ if command == "collect":
     random_number = random.randint(1, int(1e9))
 
     # Clear old folder before collect subs
-    if os.path.exists("BaiLam"):
-        import shutil
-        shutil.rmtree("BaiLam")
-    os.makedirs("BaiLam", exist_ok=True)
+    # if os.path.exists("BaiLam"):
+    #     import shutil
+    #     shutil.rmtree("BaiLam")
+    # os.makedirs("BaiLam", exist_ok=True)
 
 for row_num, row in enumerate(rows[1:], start=2):
     sbd = row[idx_sbd]

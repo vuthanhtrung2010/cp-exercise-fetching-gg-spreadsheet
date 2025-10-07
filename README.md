@@ -88,18 +88,21 @@ If a student enters their **password** instead of their **username** in the Goog
 Collect submissions from the Google Sheet:
 
 ```bash
-python3 main.py collect [--first|--last]
+python3 main.py collect [--first|--last] [--row=N]
 ```
 
 **Options:**
 - `--last` (default): Collect the **latest submission** for each student per problem
 - `--first`: Collect the **earliest submission** for each student per problem
+- `--row=N`: Start reading from row N (must be >= 2, default is 2)
 
 **Examples:**
 ```bash
-python3 main.py collect              # Collects last submission (default)
+python3 main.py collect              # Collects last submission from row 2 onwards
 python3 main.py collect --last       # Same as above
-python3 main.py collect --first      # Collects first submission
+python3 main.py collect --first      # Collects first submission from row 2 onwards
+python3 main.py collect --row=10     # Collects from row 10 to end (skips rows 2-9)
+python3 main.py collect --first --row=5  # Collects first submission from row 5 onwards
 ```
 
 **What it does:**
@@ -115,12 +118,19 @@ python3 main.py collect --first      # Collects first submission
 Mark uncollected submissions as collected without downloading files:
 
 ```bash
-python3 main.py cleanup [--first|--last]
+python3 main.py cleanup [--first|--last] [--row=N]
 ```
 
 **Options:**
 - `--last` (default): Mark the **latest submission** for each student per problem
 - `--first`: Mark the **earliest submission** for each student per problem
+- `--row=N`: Start processing from row N (must be >= 2, default is 2)
+
+**Examples:**
+```bash
+python3 main.py cleanup              # Mark last submission from row 2 onwards
+python3 main.py cleanup --row=20     # Mark submissions from row 20 to end
+```
 
 This will convert selected date-format timestamps to UNIX format, effectively marking them as processed without collecting the code.
 

@@ -15,22 +15,35 @@ SPREADSHEET_URL = os.getenv("SPREADSHEET_URL")
 SHEETNAME = os.getenv("SHEETNAME")
 
 
-# Usage: python3 main.py <collect|cleanup> [--first|--last]
+# Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N]
 if len(sys.argv) < 2 or sys.argv[1] not in ["collect", "cleanup"]:
-    print("Usage: python3 main.py <collect|cleanup> [--first|--last]")
+    print("Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N]")
     sys.exit(1)
 
 command = sys.argv[1]
 sub_order = "last"  # default
+start_row = 2  # default (skip header at row 1)
+
+# Parse optional arguments
 if len(sys.argv) > 2:
-    if sys.argv[2] == "--first":
-        sub_order = "first"
-    elif sys.argv[2] == "--last":
-        sub_order = "last"
-    else:
-        print("Unknown option: {}".format(sys.argv[2]))
-        print("Usage: python3 main.py <collect|cleanup> [--first|--last]")
-        sys.exit(1)
+    for arg in sys.argv[2:]:
+        if arg == "--first":
+            sub_order = "first"
+        elif arg == "--last":
+            sub_order = "last"
+        elif arg.startswith("--row="):
+            try:
+                start_row = int(arg.split("=")[1])
+                if start_row < 2:
+                    print("ERROR: --row must be >= 2 (row 1 is the header)")
+                    sys.exit(1)
+            except (ValueError, IndexError):
+                print("ERROR: Invalid --row format. Use --row=N where N is a number >= 2")
+                sys.exit(1)
+        else:
+            print("Unknown option: {}".format(arg))
+            print("Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N]")
+            sys.exit(1)
 
 if not SHEETNAME:
     raise ValueError("Missing SHEETNAME in environment variables")
@@ -101,7 +114,7 @@ if command == "collect":
 # Group submissions by (actual_username, mabai)
 subs = {}
 row_map = {}
-for row_num, row in enumerate(rows[1:], start=2):
+for row_num, row in enumerate(rows[start_row-1:], start=start_row):
     sbd = row[idx_sbd]
     timestamp_str = row[idx_timestamp]
     try:

@@ -15,7 +15,11 @@ cd cp-exercise-fetching-gg-spreadsheet
 2. Create a virtual environment:
 ```bash
 python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Source command is for linux
+# On Windows (Command prompt): venv\Scripts\activate
+# On Windows (Powershell): venv\Scripts\activate.ps1
+source venv/bin/activate
 ```
 
 3. Install dependencies:

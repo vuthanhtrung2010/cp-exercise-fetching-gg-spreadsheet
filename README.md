@@ -65,12 +65,21 @@ SHEETNAME="test01"
 Create a `users.txt` file with student credentials:
 
 ```txt
-user1:pass1
-user2:pass2
-user3:pass3
+student1:secretpass123
+student2:mypassword456
+student3:pass789
 ```
 
-This creates users with username `user1` and password `pass1`, etc.
+Format: `username:password` (one per line)
+
+### Password Mapping
+
+If a student enters their **password** instead of their **username** in the Google Form's SBD field, the tool will automatically map it back to their username:
+
+- Form entry: `secretpass123` → Mapped to: `student1`
+- Files will be saved with the correct username: `[random][student1][problem].ext`
+
+**Important**: Each password must be unique. The tool will exit with an error if duplicate passwords are detected in `users.txt`.
 
 ## Usage
 

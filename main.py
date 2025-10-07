@@ -46,22 +46,31 @@ def find_col_index(header, pattern):
 
 header = rows[0]
 idx_timestamp = find_col_index(header, r"\b(dấu thời gian|timestamp)\b")
-idx_sbd = find_col_index(header, r"\b(số báo danh|sbd)\b")
+idx_sbd = find_col_index(header, r"\b(số báo danh|sbd|mã nộp bài)\b")
 idx_lang = find_col_index(header, r"\b(ngôn ngữ|ext\w*)\b")
-idx_password = find_col_index(header, r"\b(pass\w*|mật\w*)\b")
 idx_mabai = find_col_index(header, r"mã bài")
 idx_code = find_col_index(header, r"\bcode\b")
 
 # Read users.txt file and load it into a dict
-users = {}
+# Also create reverse mapping: password -> username
+users = {}  # username -> password
+password_to_username = {}  # password -> username (for mapping)
 if os.path.exists("users.txt"):
     with open("users.txt", "r", encoding="utf-8") as f:
         for line in f:
             if line.strip():
                 username, password = line.strip().split(":", 1)
                 users[username] = password
+                
+                # Check for duplicate passwords
+                if password in password_to_username:
+                    print(f"❌ ERROR: Duplicate password '{password}' found for users '{password_to_username[password]}' and '{username}'")
+                    print("Please ensure each user has a unique password in users.txt")
+                    exit(1)
+                
+                password_to_username[password] = username
 
-    print("Loaded users:", users)
+    print(f"Loaded {len(users)} users with unique passwords")
 else:
     print("No users.txt file found, proceeding without user authentication.")
     exit(1)
@@ -84,7 +93,6 @@ for row_num, row in enumerate(rows[1:], start=2):
         unix_ts = int(time.mktime(dt.timetuple()))
         if command == "collect":
             # Do collecting logic
-            password = row[idx_password] # Password
             lang = row[idx_lang].lower().strip() # Language
             mabai = row[idx_mabai]
             code = row[idx_code]
@@ -92,16 +100,17 @@ for row_num, row in enumerate(rows[1:], start=2):
             # Prevent some stupid errors.
             # This should never happen unless the one who edit the sheet
             # Makes sth stupid
-            if not sbd or not lang or not mabai or not code or not password:
+            if not sbd or not lang or not mabai or not code:
                 print(f"⚠️  Incomplete data for SBD {sbd}, skipping...")
                 continue
 
-            if sbd not in users:
-                print(f"⚠️  Unknown SBD {sbd}, skipping...")
-                continue
-
-            if (users[sbd] != password):
-                print(f"⚠️  Wrong password for SBD {sbd}, skipping...")
+            # Map password to username if the SBD is a password
+            actual_username = sbd
+            if sbd in password_to_username:
+                actual_username = password_to_username[sbd]
+                print(f"🔄 Mapped password '{sbd}' -> username '{actual_username}'")
+            elif sbd not in users:
+                print(f"⚠️  Unknown SBD/password '{sbd}', skipping...")
                 continue
 
             if "c" in lang:
@@ -113,7 +122,7 @@ for row_num, row in enumerate(rows[1:], start=2):
                 continue
 
             # Save as [x][username][mabai].ext in BaiLam folder
-            filename = f"[{random_number}][{sbd}][{mabai}].{ext}"
+            filename = f"[{random_number}][{actual_username}][{mabai}].{ext}"
             filepath = os.path.join("BaiLam", filename)
 
             # If the file already exists, do not override it

@@ -47,13 +47,15 @@ jobs:
         run: |
           cp .env.example dist/
 
-      - name: Create zip
+      - name: Create zip (Windows)
+        if: runner.os == 'Windows'
         run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            7z a main-${{ matrix.os }}-${{ matrix.arch }}.zip dist/*
-          else
-            zip main-${{ matrix.os }}-${{ matrix.arch }}.zip dist/*
-          fi
+          7z a main-${{ matrix.os }}-${{ matrix.arch }}.zip dist/*
+
+      - name: Create zip (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          zip -r main-${{ matrix.os }}-${{ matrix.arch }}.zip dist/*
 
       - name: Upload release asset
         uses: softprops/action-gh-release@v2

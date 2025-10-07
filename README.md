@@ -85,16 +85,29 @@ If a student enters their **password** instead of their **username** in the Goog
 
 ### Collect Submissions
 
-Collect all new submissions from the Google Sheet:
+Collect submissions from the Google Sheet:
 
 ```bash
-python3 main.py collect
+python3 main.py collect [--first|--last]
 ```
 
-This will:
-- Download code for submissions with date-format timestamps
-- Save files to `BaiLam/` folder with format: `[random][StudentID][ProblemID].ext`
-- Update timestamps to UNIX format to mark as collected
+**Options:**
+- `--last` (default): Collect the **latest submission** for each student per problem
+- `--first`: Collect the **earliest submission** for each student per problem
+
+**Examples:**
+```bash
+python3 main.py collect              # Collects last submission (default)
+python3 main.py collect --last       # Same as above
+python3 main.py collect --first      # Collects first submission
+```
+
+**What it does:**
+- Groups submissions by student and problem
+- Selects either first or last submission based on timestamp
+- Downloads code for submissions with date-format timestamps
+- Saves files to `BaiLam/` folder with format: `[random][StudentID][ProblemID].ext`
+- Updates timestamps to UNIX format to mark as collected
 - Supported languages: C/C++ (.cpp), Python (.py)
 
 ### Cleanup Submissions
@@ -102,10 +115,14 @@ This will:
 Mark uncollected submissions as collected without downloading files:
 
 ```bash
-python3 main.py cleanup
+python3 main.py cleanup [--first|--last]
 ```
 
-This will convert any remaining date-format timestamps to UNIX format, effectively marking them as processed without collecting the code.
+**Options:**
+- `--last` (default): Mark the **latest submission** for each student per problem
+- `--first`: Mark the **earliest submission** for each student per problem
+
+This will convert selected date-format timestamps to UNIX format, effectively marking them as processed without collecting the code.
 
 ## Output Structure
 

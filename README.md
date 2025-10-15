@@ -106,8 +106,7 @@ python3 main.py collect --first --row=5  # Collects first submission from row 5 
 ```
 
 **What it does:**
-- Groups submissions by student and problem
-- Selects either first or last submission based on timestamp
+- Processes ALL submissions individually (no grouping)
 - Downloads code for submissions with date-format timestamps
 - Saves files to `BaiLam/` folder with format: `[random][StudentID][ProblemID].ext`
 - Updates timestamps to UNIX format to mark as collected
@@ -132,7 +131,11 @@ python3 main.py cleanup              # Mark last submission from row 2 onwards
 python3 main.py cleanup --row=20     # Mark submissions from row 20 to end
 ```
 
-This will convert selected date-format timestamps to UNIX format, effectively marking them as processed without collecting the code.
+**What it does:**
+- Groups submissions by student and problem
+- Selects either first or last submission based on timestamp
+- Converts selected date-format timestamps to UNIX format
+- Effectively marks them as processed without collecting the code
 
 ## Output Structure
 

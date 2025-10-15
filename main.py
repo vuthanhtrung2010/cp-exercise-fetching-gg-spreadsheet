@@ -61,6 +61,7 @@ except Exception as e:
     raise ValueError(f"Cannot open spreadsheet: {e}, maybe the sheet name is wrong?")
 
 rows = sheet.get_all_values()
+print(f"Sheet has {len(rows)} total rows (including header)")
 
 # Function to find column index using regex
 def find_col_index(header, pattern):
@@ -75,6 +76,8 @@ idx_sbd = find_col_index(header, r"\b(số báo danh|sbd|mã nộp bài)\b")
 idx_lang = find_col_index(header, r"\b(ngôn ngữ|ext\w*)\b")
 idx_mabai = find_col_index(header, r"mã bài")
 idx_code = find_col_index(header, r"\bcode\b")
+
+print(f"Column indices: timestamp={idx_timestamp}, sbd={idx_sbd}, lang={idx_lang}, mabai={idx_mabai}, code={idx_code}")
 
 # Read users.txt file and load it into a dict
 # Also create reverse mapping: password -> username
@@ -110,65 +113,148 @@ if command == "collect":
     #     shutil.rmtree("BaiLam")
     # os.makedirs("BaiLam", exist_ok=True)
 
-
-# Group submissions by (actual_username, mabai)
-subs = {}
-row_map = {}
-for row_num, row in enumerate(rows[start_row-1:], start=start_row):
-    sbd = row[idx_sbd]
-    timestamp_str = row[idx_timestamp]
-    try:
-        dt = datetime.datetime.strptime(timestamp_str, "%d/%m/%Y %H:%M:%S")
-    except ValueError:
-        continue
-    # Map password to username if the SBD is a password
-    actual_username = sbd
-    if sbd in password_to_username:
-        actual_username = password_to_username[sbd]
-    elif sbd not in users:
-        continue
-    mabai = row[idx_mabai]
-    key = (actual_username, mabai)
-    if key not in subs:
-        subs[key] = []
-        row_map[key] = []
-    subs[key].append((dt, row_num, row))
-    row_map[key].append(row_num)
-
-# For each (user, mabai), pick first or last
-for key, sublist in subs.items():
-    if sub_order == "first":
-        chosen = min(sublist, key=lambda x: x[0])
-    else:
-        chosen = max(sublist, key=lambda x: x[0])
-    dt, row_num, row = chosen
-    unix_ts = int(time.mktime(dt.timetuple()))
-    sbd = row[idx_sbd]
-    actual_username = key[0]
-    mabai = key[1]
-    lang = row[idx_lang].lower().strip()
-    code = row[idx_code]
-    if command == "collect":
+    # For collect: process ALL submissions, not just unique combinations
+    print(f"Reading from row {start_row} to end...")
+    
+    # First pass: collect all valid submissions with timestamps
+    submissions = []
+    for row_num, row in enumerate(rows[start_row-1:], start=start_row):
+        # Skip empty rows or rows that are too short
+        if not row or len(row) <= max(idx_timestamp, idx_sbd, idx_lang, idx_mabai, idx_code):
+            continue
+        
+        try:
+            sbd = row[idx_sbd].strip() if idx_sbd < len(row) else ""
+            timestamp_str = row[idx_timestamp].strip() if idx_timestamp < len(row) else ""
+            
+            # Skip if essential fields are empty
+            if not sbd or not timestamp_str:
+                continue
+                
+            dt = datetime.datetime.strptime(timestamp_str, "%d/%m/%Y %H:%M:%S")
+        except (ValueError, IndexError):
+            continue
+        
+        # Map password to username if the SBD is a password
+        actual_username = sbd
+        if sbd in password_to_username:
+            actual_username = password_to_username[sbd]
+        elif sbd not in users:
+            continue
+        
+        mabai = row[idx_mabai].strip() if idx_mabai < len(row) else ""
+        lang = row[idx_lang].strip() if idx_lang < len(row) else ""
+        code = row[idx_code].strip() if idx_code < len(row) else ""
+        
+        # Make mabai uppercase
+        mabai = mabai.upper()
+        
         # Prevent some stupid errors.
         if not sbd or not lang or not mabai or not code:
-            print(f"⚠️  Incomplete data for SBD {sbd}, skipping...")
             continue
-        if "c" in lang:
+        
+        if "c" in lang.lower():
             ext = "cpp"
-        elif "py" in lang:
+        elif "py" in lang.lower():
             ext = "py"
         else:
-            print(f"⚠️  Unknown language '{lang}' for SBD {sbd}, skipping...")
             continue
+        
+        submissions.append((dt, row_num, sbd, actual_username, mabai, ext, code))
+    
+    # Sort submissions by timestamp (ascending = oldest first, descending = newest first)
+    if sub_order == "first":
+        submissions.sort(key=lambda x: x[0])  # Oldest first, so first occurrences are processed first
+    else:
+        submissions.sort(key=lambda x: x[0])  # Same order, but later ones will overwrite
+    
+    print(f"Found {len(submissions)} valid submissions to process (order: {sub_order})")
+    
+    # Second pass: process submissions in sorted order
+    processed_count = 0
+    skipped_count = len(rows) - start_row + 1 - len(submissions)
+    os.makedirs("BaiLam", exist_ok=True)
+    
+    for dt, row_num, sbd, actual_username, mabai, ext, code in submissions:
         filename = f"[{random_number}][{actual_username}][{mabai}].{ext}"
         filepath = os.path.join("BaiLam", filename)
-        if os.path.exists(filepath):
-            print(f"⚠️  File {filepath} already exists, skipping...")
-            continue
+        
+        if sub_order == "first":
+            # For --first: keep the first submission, skip if file exists
+            if os.path.exists(filepath):
+                print(f"⚠️  File {filepath} already exists (keeping first submission), skipping...")
+                sheet.update_cell(row_num, idx_timestamp + 1, int(time.mktime(dt.timetuple())))
+                continue
+        # For --last: always overwrite to keep the latest submission
+        
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(code)
         print(f"✅ Saved {filepath}")
-        sheet.update_cell(row_num, idx_timestamp + 1, unix_ts)
-    elif command == "cleanup":
+        sheet.update_cell(row_num, idx_timestamp + 1, int(time.mktime(dt.timetuple())))
+        processed_count += 1
+    
+    print(f"✅ Collect complete. Processed {processed_count} submissions, skipped {skipped_count} rows.")
+
+elif command == "cleanup":
+    # Group submissions by (actual_username, mabai) for cleanup
+    subs = {}
+    row_map = {}
+    print(f"Reading from row {start_row} to end...")
+    processed_count = 0
+    skipped_count = 0
+    for row_num, row in enumerate(rows[start_row-1:], start=start_row):
+        # Skip empty rows or rows that are too short
+        if not row or len(row) <= max(idx_timestamp, idx_sbd, idx_lang, idx_mabai, idx_code):
+            skipped_count += 1
+            continue
+        
+        try:
+            sbd = row[idx_sbd].strip() if idx_sbd < len(row) else ""
+            timestamp_str = row[idx_timestamp].strip() if idx_timestamp < len(row) else ""
+            
+            # Skip if essential fields are empty
+            if not sbd or not timestamp_str:
+                skipped_count += 1
+                continue
+                
+            dt = datetime.datetime.strptime(timestamp_str, "%d/%m/%Y %H:%M:%S")
+        except (ValueError, IndexError):
+            skipped_count += 1
+            continue
+        
+        # Map password to username if the SBD is a password
+        actual_username = sbd
+        if sbd in password_to_username:
+            actual_username = password_to_username[sbd]
+        elif sbd not in users:
+            skipped_count += 1
+            continue
+        
+        mabai = row[idx_mabai].strip().upper() if idx_mabai < len(row) else ""
+        if not mabai:
+            skipped_count += 1
+            continue
+            
+        key = (actual_username, mabai)
+        if key not in subs:
+            subs[key] = []
+            row_map[key] = []
+        subs[key].append((dt, row_num, row))
+        row_map[key].append(row_num)
+        processed_count += 1
+
+    print(f"Found {len(subs)} unique (user, problem) combinations to process from {processed_count} valid rows (skipped {skipped_count} rows)")
+
+    # For each (user, mabai), pick first or last
+    for key, sublist in subs.items():
+        if sub_order == "first":
+            chosen = min(sublist, key=lambda x: x[0])
+        else:
+            chosen = max(sublist, key=lambda x: x[0])
+        dt, row_num, row = chosen
+        unix_ts = int(time.mktime(dt.timetuple()))
+        sbd = row[idx_sbd].strip() if idx_sbd < len(row) else ""
         sheet.update_cell(row_num, idx_timestamp + 1, unix_ts)
         print(f"Marked as collected for SBD {sbd}")
+
+    print(f"✅ Cleanup complete. Processed {len(subs)} unique (user, problem) combinations.")

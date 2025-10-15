@@ -131,7 +131,17 @@ if command == "collect":
             if not sbd or not timestamp_str:
                 continue
                 
-            dt = datetime.datetime.strptime(timestamp_str, "%d/%m/%Y %H:%M:%S")
+            # Try multiple date formats
+            dt = None
+            for date_format in ["%d/%m/%Y %H:%M:%S", "%m/%d/%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%d-%m-%Y %H:%M:%S"]:
+                try:
+                    dt = datetime.datetime.strptime(timestamp_str, date_format)
+                    break
+                except ValueError:
+                    continue
+            
+            if dt is None:
+                continue
         except (ValueError, IndexError):
             continue
         
@@ -217,7 +227,18 @@ elif command == "cleanup":
                 skipped_count += 1
                 continue
                 
-            dt = datetime.datetime.strptime(timestamp_str, "%d/%m/%Y %H:%M:%S")
+            # Try multiple date formats
+            dt = None
+            for date_format in ["%d/%m/%Y %H:%M:%S", "%m/%d/%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%d-%m-%Y %H:%M:%S"]:
+                try:
+                    dt = datetime.datetime.strptime(timestamp_str, date_format)
+                    break
+                except ValueError:
+                    continue
+            
+            if dt is None:
+                skipped_count += 1
+                continue
         except (ValueError, IndexError):
             skipped_count += 1
             continue

@@ -15,14 +15,15 @@ SPREADSHEET_URL = os.getenv("SPREADSHEET_URL")
 SHEETNAME = os.getenv("SHEETNAME")
 
 
-# Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N]
+# Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N] [--watch]
 if len(sys.argv) < 2 or sys.argv[1] not in ["collect", "cleanup"]:
-    print("Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N]")
+    print("Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N] [--watch]")
     sys.exit(1)
 
 command = sys.argv[1]
 sub_order = "last"  # default
 start_row = 2  # default (skip header at row 1)
+watch_mode = False  # default
 
 # Parse optional arguments
 if len(sys.argv) > 2:
@@ -31,6 +32,8 @@ if len(sys.argv) > 2:
             sub_order = "first"
         elif arg == "--last":
             sub_order = "last"
+        elif arg == "--watch":
+            watch_mode = True
         elif arg.startswith("--row="):
             try:
                 start_row = int(arg.split("=")[1])
@@ -42,7 +45,7 @@ if len(sys.argv) > 2:
                 sys.exit(1)
         else:
             print("Unknown option: {}".format(arg))
-            print("Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N]")
+            print("Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N] [--watch]")
             sys.exit(1)
 
 if not SHEETNAME:
@@ -103,7 +106,8 @@ else:
     print("No users.txt file found, proceeding without user authentication.")
     exit(1)
 
-if command == "collect":
+def run_collect():
+    """Execute the collect command"""
     # Generate a random number at program starts
     random_number = random.randint(1, int(1e9))
 
@@ -215,7 +219,8 @@ if command == "collect":
     
     print(f"✅ Collect complete. Processed {processed_count} submissions, skipped {skipped_count} rows.")
 
-elif command == "cleanup":
+def run_cleanup():
+    """Execute the cleanup command"""
     # Group submissions by (actual_username, mabai) for cleanup
     subs = {}
     row_map = {}
@@ -299,3 +304,39 @@ elif command == "cleanup":
         print("✅ All timestamps updated")
     
     print(f"✅ Cleanup complete. Processed {len(subs)} unique (user, problem) combinations.")
+
+# Main execution
+if watch_mode:
+    print(f"🔄 Watch mode enabled. Running {command} every 5 minutes. Press Ctrl+C to stop.")
+    iteration = 1
+    while True:
+        try:
+            print(f"\n{'='*60}")
+            print(f"🔄 Watch iteration #{iteration} - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            print(f"{'='*60}\n")
+            
+            # Refresh data from sheet
+            rows = sheet.get_all_values()
+            
+            if command == "collect":
+                run_collect()
+            elif command == "cleanup":
+                run_cleanup()
+            
+            print("\n⏳ Waiting 5 minutes until next check...")
+            time.sleep(300)  # 5 minutes
+            iteration += 1
+        except KeyboardInterrupt:
+            print(f"\n\n🛑 Watch mode stopped by user. Total iterations: {iteration}")
+            sys.exit(0)
+        except Exception as e:
+            print(f"\n❌ Error during iteration #{iteration}: {e}")
+            print("⏳ Retrying in 5 minutes...")
+            time.sleep(300)
+            iteration += 1
+else:
+    # Single run
+    if command == "collect":
+        run_collect()
+    elif command == "cleanup":
+        run_cleanup()

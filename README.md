@@ -88,13 +88,14 @@ If a student enters their **password** instead of their **username** in the Goog
 Collect submissions from the Google Sheet:
 
 ```bash
-python3 main.py collect [--first|--last] [--row=N]
+python3 main.py collect [--first|--last] [--row=N] [--watch]
 ```
 
 **Options:**
 - `--last` (default): Collect the **latest submission** for each student per problem
 - `--first`: Collect the **earliest submission** for each student per problem
 - `--row=N`: Start reading from row N (must be >= 2, default is 2)
+- `--watch`: Enable watch mode to automatically check for new submissions every 5 minutes
 
 **Examples:**
 ```bash
@@ -103,6 +104,8 @@ python3 main.py collect --last       # Same as above
 python3 main.py collect --first      # Collects first submission from row 2 onwards
 python3 main.py collect --row=10     # Collects from row 10 to end (skips rows 2-9)
 python3 main.py collect --first --row=5  # Collects first submission from row 5 onwards
+python3 main.py collect --watch      # Runs continuously, checking every 5 minutes
+python3 main.py collect --last --watch  # Watch mode with last submission preference
 ```
 
 **What it does:**
@@ -117,18 +120,20 @@ python3 main.py collect --first --row=5  # Collects first submission from row 5 
 Mark uncollected submissions as collected without downloading files:
 
 ```bash
-python3 main.py cleanup [--first|--last] [--row=N]
+python3 main.py cleanup [--first|--last] [--row=N] [--watch]
 ```
 
 **Options:**
 - `--last` (default): Mark the **latest submission** for each student per problem
 - `--first`: Mark the **earliest submission** for each student per problem
 - `--row=N`: Start processing from row N (must be >= 2, default is 2)
+- `--watch`: Enable watch mode to automatically check for new submissions every 5 minutes
 
 **Examples:**
 ```bash
 python3 main.py cleanup              # Mark last submission from row 2 onwards
 python3 main.py cleanup --row=20     # Mark submissions from row 20 to end
+python3 main.py cleanup --watch      # Runs continuously, checking every 5 minutes
 ```
 
 **What it does:**
@@ -136,6 +141,27 @@ python3 main.py cleanup --row=20     # Mark submissions from row 20 to end
 - Selects either first or last submission based on timestamp
 - Converts selected date-format timestamps to UNIX format
 - Effectively marks them as processed without collecting the code
+
+### Watch Mode
+
+Both `collect` and `cleanup` commands support watch mode with the `--watch` flag:
+
+```bash
+python3 main.py collect --watch
+python3 main.py cleanup --watch
+```
+
+**Watch mode features:**
+- Automatically checks for new submissions every **5 minutes**
+- Refreshes spreadsheet data each iteration
+- Displays iteration number and timestamp for each run
+- Press **Ctrl+C** to stop gracefully
+- Combines with other options: `--first`, `--last`, `--row=N`
+
+**Use cases:**
+- Monitor submissions during an exam or contest
+- Continuously collect new code submissions without manual intervention
+- Keep submission tracking up-to-date in real-time
 
 ## Output Structure
 

@@ -185,6 +185,9 @@ if command == "collect":
     skipped_count = len(rows) - start_row + 1 - len(submissions)
     os.makedirs("BaiLam", exist_ok=True)
     
+    # Batch updates for Google Sheets
+    batch_updates = []
+    
     for dt, row_num, sbd, actual_username, mabai, ext, code in submissions:
         filename = f"[{random_number}][{actual_username}][{mabai}].{ext}"
         filepath = os.path.join("BaiLam", filename)
@@ -193,15 +196,22 @@ if command == "collect":
             # For --first: keep the first submission, skip if file exists
             if os.path.exists(filepath):
                 print(f"⚠️  File {filepath} already exists (keeping first submission), skipping...")
-                sheet.update_cell(row_num, idx_timestamp + 1, int(time.mktime(dt.timetuple())))
+                batch_updates.append((row_num, idx_timestamp + 1, int(time.mktime(dt.timetuple()))))
                 continue
         # For --last: always overwrite to keep the latest submission
         
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(code)
         print(f"✅ Saved {filepath}")
-        sheet.update_cell(row_num, idx_timestamp + 1, int(time.mktime(dt.timetuple())))
+        batch_updates.append((row_num, idx_timestamp + 1, int(time.mktime(dt.timetuple()))))
         processed_count += 1
+    
+    # Batch update all timestamps at once
+    if batch_updates:
+        print(f"Updating {len(batch_updates)} timestamps in Google Sheets...")
+        for row_num, col_num, value in batch_updates:
+            sheet.update_cell(row_num, col_num, value)
+        print("✅ All timestamps updated")
     
     print(f"✅ Collect complete. Processed {processed_count} submissions, skipped {skipped_count} rows.")
 
@@ -266,6 +276,9 @@ elif command == "cleanup":
 
     print(f"Found {len(subs)} unique (user, problem) combinations to process from {processed_count} valid rows (skipped {skipped_count} rows)")
 
+    # Batch updates for Google Sheets
+    batch_updates = []
+    
     # For each (user, mabai), pick first or last
     for key, sublist in subs.items():
         if sub_order == "first":
@@ -275,7 +288,14 @@ elif command == "cleanup":
         dt, row_num, row = chosen
         unix_ts = int(time.mktime(dt.timetuple()))
         sbd = row[idx_sbd].strip() if idx_sbd < len(row) else ""
-        sheet.update_cell(row_num, idx_timestamp + 1, unix_ts)
+        batch_updates.append((row_num, idx_timestamp + 1, unix_ts))
         print(f"Marked as collected for SBD {sbd}")
 
+    # Batch update all timestamps at once
+    if batch_updates:
+        print(f"Updating {len(batch_updates)} timestamps in Google Sheets...")
+        for row_num, col_num, value in batch_updates:
+            sheet.update_cell(row_num, col_num, value)
+        print("✅ All timestamps updated")
+    
     print(f"✅ Cleanup complete. Processed {len(subs)} unique (user, problem) combinations.")

@@ -162,10 +162,22 @@ python3 main.py cleanup --watch=1h           # 1 hour
 - **Default interval**: 5 seconds (if no interval specified)
 - **Custom intervals**: Supports seconds (`5s`), minutes (`5m`), hours (`1h`)
 - **Two syntax styles**: `--watch=5m` or `--watch 5m` (both work)
-- Refreshes spreadsheet data each iteration
+- **Incremental processing**: Only processes new submissions (timestamp-based)
+- **Smart data fetching**: Uses batch API for faster reads
+- **Change detection**: Checks last row for changes before full refresh
+- **Error resilience**: Exponential backoff on API errors
 - Displays iteration number and timestamp for each run
 - Press **Ctrl+C** to stop gracefully
 - Combines with other options: `--first`, `--last`, `--row=N`
+
+**Performance optimizations:**
+- First iteration does a full scan to establish baseline
+- Subsequent iterations only process rows with timestamps newer than last check
+- **Single batch update**: All timestamp updates in ONE API call (prevents rate limiting)
+- Batch read API (`batch_get`) is significantly faster than `get_all_values()`
+- Automatic retry with exponential backoff on transient errors
+- Incremental change detection reduces unnecessary data transfers
+- **No API flooding**: Updates 300 rows = 1 request (not 300 requests)
 
 **Use cases:**
 - **Quick testing**: Use default 5s for rapid development feedback

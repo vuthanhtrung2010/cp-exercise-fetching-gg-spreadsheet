@@ -102,15 +102,36 @@ try:
 except Exception as e:
     raise ValueError(f"Cannot open spreadsheet: {e}, maybe the sheet name is wrong?")
 
-rows = sheet.get_all_values()
-print(f"Sheet has {len(rows)} total rows (including header)")
-
 # Function to find column index using regex
 def find_col_index(header, pattern):
     for i, col in enumerate(header):
         if re.search(pattern, col, re.IGNORECASE):
             return i
     raise ValueError(f"No column matching pattern '{pattern}' found.")
+
+# Efficient data fetching using batch_get
+def get_sheet_data(start_row_num=1, end_row_num=None):
+    """Fetch sheet data efficiently using batch_get"""
+    # Don't include sheet name in range - worksheet.batch_get() already operates on this sheet
+    if end_row_num is None:
+        range_str = f"A{start_row_num}:Z"
+    else:
+        range_str = f"A{start_row_num}:Z{end_row_num}"
+    
+    try:
+        data = sheet.batch_get([range_str])
+        if data and len(data) > 0:
+            return data[0]
+        return []
+    except Exception as e:
+        print(f"⚠️ Error fetching data: {e}")
+        # Exponential backoff on error
+        time.sleep(random.uniform(1, 3))
+        raise
+
+# Initial data load
+rows = get_sheet_data()
+print(f"Sheet has {len(rows)} total rows (including header)")
 
 header = rows[0]
 idx_timestamp = find_col_index(header, r"\b(dấu thời gian|timestamp)\b")
@@ -120,6 +141,9 @@ idx_mabai = find_col_index(header, r"mã bài")
 idx_code = find_col_index(header, r"\bcode\b")
 
 print(f"Column indices: timestamp={idx_timestamp}, sbd={idx_sbd}, lang={idx_lang}, mabai={idx_mabai}, code={idx_code}")
+
+# Track last checked timestamp for incremental processing
+last_checked_timestamp = 0
 
 # Read users.txt file and load it into a dict
 # Also create reverse mapping: password -> username
@@ -145,8 +169,14 @@ else:
     print("No users.txt file found, proceeding without user authentication.")
     exit(1)
 
-def run_collect():
-    """Execute the collect command"""
+def run_collect(incremental=False):
+    """Execute the collect command
+    
+    Args:
+        incremental: If True, only process rows with timestamp > last_checked_timestamp
+    """
+    global last_checked_timestamp
+    
     # Generate a random number at program starts
     random_number = random.randint(1, int(1e9))
 
@@ -157,10 +187,15 @@ def run_collect():
     # os.makedirs("BaiLam", exist_ok=True)
 
     # For collect: process ALL submissions, not just unique combinations
-    print(f"Reading from row {start_row} to end...")
+    if incremental:
+        print(f"Reading from row {start_row} to end (incremental mode: timestamp > {last_checked_timestamp})...")
+    else:
+        print(f"Reading from row {start_row} to end...")
     
     # First pass: collect all valid submissions with timestamps
     submissions = []
+    current_max_timestamp = last_checked_timestamp
+    
     for row_num, row in enumerate(rows[start_row-1:], start=start_row):
         # Skip empty rows or rows that are too short
         if not row or len(row) <= max(idx_timestamp, idx_sbd, idx_lang, idx_mabai, idx_code):
@@ -185,6 +220,17 @@ def run_collect():
             
             if dt is None:
                 continue
+            
+            # Convert to UNIX timestamp for comparison
+            unix_timestamp = int(time.mktime(dt.timetuple()))
+            
+            # Skip if incremental mode and timestamp is not newer
+            if incremental and unix_timestamp <= last_checked_timestamp:
+                continue
+            
+            # Track the maximum timestamp seen
+            current_max_timestamp = max(current_max_timestamp, unix_timestamp)
+            
         except (ValueError, IndexError):
             continue
         
@@ -249,23 +295,48 @@ def run_collect():
         batch_updates.append((row_num, idx_timestamp + 1, int(time.mktime(dt.timetuple()))))
         processed_count += 1
     
-    # Batch update all timestamps at once
+    # Batch update all timestamps at once using a single API call
     if batch_updates:
-        print(f"Updating {len(batch_updates)} timestamps in Google Sheets...")
-        for row_num, col_num, value in batch_updates:
-            sheet.update_cell(row_num, col_num, value)
-        print("✅ All timestamps updated")
+        print(f"Updating {len(batch_updates)} timestamps in Google Sheets (single API call)...")
+        try:
+            # Use gspread.Cell for efficient batch updates in one request
+            cells = [gspread.Cell(r, c, v) for (r, c, v) in batch_updates]
+            sheet.update_cells(cells, value_input_option="USER_ENTERED")
+            print("✅ All timestamps updated in one batch")
+        except Exception as e:
+            print(f"⚠️ Error updating timestamps: {e}")
+            # Exponential backoff on error
+            time.sleep(random.uniform(1, 3))
+            raise
+    
+    # Update last checked timestamp for incremental mode
+    if current_max_timestamp > last_checked_timestamp:
+        last_checked_timestamp = current_max_timestamp
+        print(f"📊 Updated last checked timestamp to: {last_checked_timestamp}")
     
     print(f"✅ Collect complete. Processed {processed_count} submissions, skipped {skipped_count} rows.")
 
-def run_cleanup():
-    """Execute the cleanup command"""
+def run_cleanup(incremental=False):
+    """Execute the cleanup command
+    
+    Args:
+        incremental: If True, only process rows with timestamp > last_checked_timestamp
+    """
+    global last_checked_timestamp
+    
     # Group submissions by (actual_username, mabai) for cleanup
     subs = {}
     row_map = {}
-    print(f"Reading from row {start_row} to end...")
+    
+    if incremental:
+        print(f"Reading from row {start_row} to end (incremental mode: timestamp > {last_checked_timestamp})...")
+    else:
+        print(f"Reading from row {start_row} to end...")
+    
     processed_count = 0
     skipped_count = 0
+    current_max_timestamp = last_checked_timestamp
+    
     for row_num, row in enumerate(rows[start_row-1:], start=start_row):
         # Skip empty rows or rows that are too short
         if not row or len(row) <= max(idx_timestamp, idx_sbd, idx_lang, idx_mabai, idx_code):
@@ -293,6 +364,18 @@ def run_cleanup():
             if dt is None:
                 skipped_count += 1
                 continue
+            
+            # Convert to UNIX timestamp for comparison
+            unix_timestamp = int(time.mktime(dt.timetuple()))
+            
+            # Skip if incremental mode and timestamp is not newer
+            if incremental and unix_timestamp <= last_checked_timestamp:
+                skipped_count += 1
+                continue
+            
+            # Track the maximum timestamp seen
+            current_max_timestamp = max(current_max_timestamp, unix_timestamp)
+            
         except (ValueError, IndexError):
             skipped_count += 1
             continue
@@ -335,12 +418,24 @@ def run_cleanup():
         batch_updates.append((row_num, idx_timestamp + 1, unix_ts))
         print(f"Marked as collected for SBD {sbd}")
 
-    # Batch update all timestamps at once
+    # Batch update all timestamps at once using a single API call
     if batch_updates:
-        print(f"Updating {len(batch_updates)} timestamps in Google Sheets...")
-        for row_num, col_num, value in batch_updates:
-            sheet.update_cell(row_num, col_num, value)
-        print("✅ All timestamps updated")
+        print(f"Updating {len(batch_updates)} timestamps in Google Sheets (single API call)...")
+        try:
+            # Use gspread.Cell for efficient batch updates in one request
+            cells = [gspread.Cell(r, c, v) for (r, c, v) in batch_updates]
+            sheet.update_cells(cells, value_input_option="USER_ENTERED")
+            print("✅ All timestamps updated in one batch")
+        except Exception as e:
+            print(f"⚠️ Error updating timestamps: {e}")
+            # Exponential backoff on error
+            time.sleep(random.uniform(1, 3))
+            raise
+    
+    # Update last checked timestamp for incremental mode
+    if current_max_timestamp > last_checked_timestamp:
+        last_checked_timestamp = current_max_timestamp
+        print(f"📊 Updated last checked timestamp to: {last_checked_timestamp}")
     
     print(f"✅ Cleanup complete. Processed {len(subs)} unique (user, problem) combinations.")
 
@@ -355,20 +450,52 @@ if watch_mode:
         interval_str = f"{watch_interval // 3600}h"
     
     print(f"🔄 Watch mode enabled. Running {command} every {interval_str}. Press Ctrl+C to stop.")
+    print(f"🚀 Using incremental mode for better performance")
     iteration = 1
+    
+    # First run - full scan
+    if command == "collect":
+        run_collect(incremental=False)
+    elif command == "cleanup":
+        run_cleanup(incremental=False)
+    
+    iteration += 1
+    
     while True:
         try:
             print(f"\n{'='*60}")
             print(f"🔄 Watch iteration #{iteration} - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             print(f"{'='*60}\n")
             
-            # Refresh data from sheet
-            rows = sheet.get_all_values()
+            # Check if there are new rows by comparing last row
+            current_row_count = len(rows)
             
+            # First, quickly check if last row changed (incremental check)
+            try:
+                last_row_data = sheet.batch_get([f"A{current_row_count}:Z{current_row_count}"])
+                if last_row_data and len(last_row_data) > 0 and len(last_row_data[0]) > 0:
+                    last_row = last_row_data[0][0]
+                    # If last row is different or there might be new rows, fetch all data
+                    if current_row_count >= len(rows) or last_row != rows[-1]:
+                        print("📥 Detected changes, fetching latest data...")
+                        rows = get_sheet_data()
+                        print(f"📊 Sheet now has {len(rows)} total rows")
+                else:
+                    # Check if new rows were added
+                    all_rows = get_sheet_data()
+                    if len(all_rows) > current_row_count:
+                        print(f"📥 Detected {len(all_rows) - current_row_count} new rows")
+                        rows = all_rows
+            except Exception as e:
+                print(f"⚠️ Error checking for changes: {e}, doing full refresh...")
+                time.sleep(random.uniform(1, 3))
+                rows = get_sheet_data()
+            
+            # Run with incremental mode (only process new timestamps)
             if command == "collect":
-                run_collect()
+                run_collect(incremental=True)
             elif command == "cleanup":
-                run_cleanup()
+                run_cleanup(incremental=True)
             
             print(f"\n⏳ Waiting {interval_str} until next check...")
             time.sleep(watch_interval)
@@ -378,7 +505,8 @@ if watch_mode:
             sys.exit(0)
         except Exception as e:
             print(f"\n❌ Error during iteration #{iteration}: {e}")
-            print(f"⏳ Retrying in {interval_str}...")
+            print(f"⏳ Retrying in {interval_str} with exponential backoff...")
+            time.sleep(random.uniform(1, 3))
             time.sleep(watch_interval)
             iteration += 1
 else:

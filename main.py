@@ -467,25 +467,37 @@ if watch_mode:
             print(f"🔄 Watch iteration #{iteration} - {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             print(f"{'='*60}\n")
             
-            # Check if there are new rows by comparing last row
+            # Check if there are new rows by checking total row count
             current_row_count = len(rows)
             
-            # First, quickly check if last row changed (incremental check)
+            # First, quickly check row count to see if anything changed
             try:
-                last_row_data = sheet.batch_get([f"A{current_row_count}:Z{current_row_count}"])
-                if last_row_data and len(last_row_data) > 0 and len(last_row_data[0]) > 0:
-                    last_row = last_row_data[0][0]
-                    # If last row is different or there might be new rows, fetch all data
-                    if current_row_count >= len(rows) or last_row != rows[-1]:
-                        print("📥 Detected changes, fetching latest data...")
-                        rows = get_sheet_data()
-                        print(f"📊 Sheet now has {len(rows)} total rows")
+                # Get just the first cell to check total rows efficiently
+                all_data = sheet.batch_get(["A:A"])
+                new_row_count = len(all_data[0]) if all_data and len(all_data) > 0 else 0
+                
+                if new_row_count > current_row_count:
+                    print(f"📥 Detected {new_row_count - current_row_count} new rows")
+                    rows = get_sheet_data()
+                    print(f"📊 Sheet now has {len(rows)} total rows")
+                elif new_row_count < current_row_count:
+                    print("📥 Detected row deletion, refreshing data...")
+                    rows = get_sheet_data()
+                    print(f"📊 Sheet now has {len(rows)} total rows")
                 else:
-                    # Check if new rows were added
-                    all_rows = get_sheet_data()
-                    if len(all_rows) > current_row_count:
-                        print(f"📥 Detected {len(all_rows) - current_row_count} new rows")
-                        rows = all_rows
+                    # No new rows, check if last row content changed
+                    if current_row_count > 0:
+                        last_row_data = sheet.batch_get([f"A{current_row_count}:Z{current_row_count}"])
+                        if last_row_data and len(last_row_data) > 0 and len(last_row_data[0]) > 0:
+                            last_row_new = last_row_data[0][0]
+                            last_row_old = rows[-1]
+                            # Compare row contents
+                            if last_row_new != last_row_old:
+                                print("📥 Detected changes in existing rows, fetching latest data...")
+                                rows = get_sheet_data()
+                                print(f"📊 Sheet now has {len(rows)} total rows")
+                            else:
+                                print("✓ No changes detected, using incremental mode")
             except Exception as e:
                 print(f"⚠️ Error checking for changes: {e}, doing full refresh...")
                 time.sleep(random.uniform(1, 3))

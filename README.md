@@ -88,14 +88,16 @@ If a student enters their **password** instead of their **username** in the Goog
 Collect submissions from the Google Sheet:
 
 ```bash
-python3 main.py collect [--first|--last] [--row=N] [--watch]
+python3 main.py collect [--first|--last] [--row=N] [--watch[=interval]]
 ```
 
 **Options:**
 - `--last` (default): Collect the **latest submission** for each student per problem
 - `--first`: Collect the **earliest submission** for each student per problem
 - `--row=N`: Start reading from row N (must be >= 2, default is 2)
-- `--watch`: Enable watch mode to automatically check for new submissions every 5 minutes
+- `--watch[=interval]`: Enable watch mode with custom interval (default: 5s)
+  - Supports: `5s` (seconds), `5m` (minutes), `1h` (hours)
+  - Can use `--watch=5m` or `--watch 5m` syntax
 
 **Examples:**
 ```bash
@@ -104,8 +106,10 @@ python3 main.py collect --last       # Same as above
 python3 main.py collect --first      # Collects first submission from row 2 onwards
 python3 main.py collect --row=10     # Collects from row 10 to end (skips rows 2-9)
 python3 main.py collect --first --row=5  # Collects first submission from row 5 onwards
-python3 main.py collect --watch      # Runs continuously, checking every 5 minutes
-python3 main.py collect --last --watch  # Watch mode with last submission preference
+python3 main.py collect --watch      # Runs continuously, checking every 5 seconds (default)
+python3 main.py collect --watch=5m   # Watch mode with 5-minute interval
+python3 main.py collect --watch 10m  # Alternative syntax for 10-minute interval
+python3 main.py collect --watch=1h   # Watch mode with 1-hour interval
 ```
 
 **What it does:**
@@ -120,20 +124,21 @@ python3 main.py collect --last --watch  # Watch mode with last submission prefer
 Mark uncollected submissions as collected without downloading files:
 
 ```bash
-python3 main.py cleanup [--first|--last] [--row=N] [--watch]
+python3 main.py cleanup [--first|--last] [--row=N] [--watch[=interval]]
 ```
 
 **Options:**
 - `--last` (default): Mark the **latest submission** for each student per problem
 - `--first`: Mark the **earliest submission** for each student per problem
 - `--row=N`: Start processing from row N (must be >= 2, default is 2)
-- `--watch`: Enable watch mode to automatically check for new submissions every 5 minutes
+- `--watch[=interval]`: Enable watch mode with custom interval (default: 5s)
 
 **Examples:**
 ```bash
 python3 main.py cleanup              # Mark last submission from row 2 onwards
 python3 main.py cleanup --row=20     # Mark submissions from row 20 to end
-python3 main.py cleanup --watch      # Runs continuously, checking every 5 minutes
+python3 main.py cleanup --watch      # Runs continuously, checking every 5 seconds
+python3 main.py cleanup --watch=5m   # Watch mode with 5-minute interval
 ```
 
 **What it does:**
@@ -144,24 +149,28 @@ python3 main.py cleanup --watch      # Runs continuously, checking every 5 minut
 
 ### Watch Mode
 
-Both `collect` and `cleanup` commands support watch mode with the `--watch` flag:
+Both `collect` and `cleanup` commands support watch mode with customizable intervals:
 
 ```bash
-python3 main.py collect --watch
-python3 main.py cleanup --watch
+python3 main.py collect --watch              # Default: 5 seconds
+python3 main.py collect --watch=5m           # 5 minutes
+python3 main.py collect --watch 10m          # 10 minutes (alternative syntax)
+python3 main.py cleanup --watch=1h           # 1 hour
 ```
 
 **Watch mode features:**
-- Automatically checks for new submissions every **5 minutes**
+- **Default interval**: 5 seconds (if no interval specified)
+- **Custom intervals**: Supports seconds (`5s`), minutes (`5m`), hours (`1h`)
+- **Two syntax styles**: `--watch=5m` or `--watch 5m` (both work)
 - Refreshes spreadsheet data each iteration
 - Displays iteration number and timestamp for each run
 - Press **Ctrl+C** to stop gracefully
 - Combines with other options: `--first`, `--last`, `--row=N`
 
 **Use cases:**
-- Monitor submissions during an exam or contest
-- Continuously collect new code submissions without manual intervention
-- Keep submission tracking up-to-date in real-time
+- **Quick testing**: Use default 5s for rapid development feedback
+- **Active monitoring**: Use 1-5 minutes during exams or contests
+- **Background sync**: Use 30m-1h for periodic updates without manual intervention
 
 ## Output Structure
 

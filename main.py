@@ -15,38 +15,77 @@ SPREADSHEET_URL = os.getenv("SPREADSHEET_URL")
 SHEETNAME = os.getenv("SHEETNAME")
 
 
-# Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N] [--watch]
+def parse_time_interval(time_str):
+    """Parse time interval string (e.g., '5s', '5m', '1h') to seconds"""
+    time_str = time_str.strip().lower()
+    if not time_str:
+        return 5  # default 5 seconds
+    
+    # Extract number and unit
+    match = re.match(r'^(\d+\.?\d*)([smh]?)$', time_str)
+    if not match:
+        print(f"ERROR: Invalid time format '{time_str}'. Use formats like: 5s, 5m, 1h")
+        sys.exit(1)
+    
+    value = float(match.group(1))
+    unit = match.group(2) or 's'  # default to seconds if no unit
+    
+    if unit == 's':
+        return int(value)
+    elif unit == 'm':
+        return int(value * 60)
+    elif unit == 'h':
+        return int(value * 3600)
+
+# Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N] [--watch[=interval]]
 if len(sys.argv) < 2 or sys.argv[1] not in ["collect", "cleanup"]:
-    print("Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N] [--watch]")
+    print("Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N] [--watch[=interval]]")
+    print("  --watch interval can be: 5s, 5m, 1h (default: 5s)")
     sys.exit(1)
 
 command = sys.argv[1]
 sub_order = "last"  # default
 start_row = 2  # default (skip header at row 1)
 watch_mode = False  # default
+watch_interval = 5  # default 5 seconds
 
 # Parse optional arguments
-if len(sys.argv) > 2:
-    for arg in sys.argv[2:]:
-        if arg == "--first":
-            sub_order = "first"
-        elif arg == "--last":
-            sub_order = "last"
-        elif arg == "--watch":
-            watch_mode = True
-        elif arg.startswith("--row="):
-            try:
-                start_row = int(arg.split("=")[1])
-                if start_row < 2:
-                    print("ERROR: --row must be >= 2 (row 1 is the header)")
-                    sys.exit(1)
-            except (ValueError, IndexError):
-                print("ERROR: Invalid --row format. Use --row=N where N is a number >= 2")
-                sys.exit(1)
+i = 2
+while i < len(sys.argv):
+    arg = sys.argv[i]
+    
+    if arg == "--first":
+        sub_order = "first"
+    elif arg == "--last":
+        sub_order = "last"
+    elif arg == "--watch":
+        watch_mode = True
+        # Check if next arg is a time interval (not starting with --)
+        if i + 1 < len(sys.argv) and not sys.argv[i + 1].startswith("--"):
+            watch_interval = parse_time_interval(sys.argv[i + 1])
+            i += 1  # skip the interval arg
         else:
-            print("Unknown option: {}".format(arg))
-            print("Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N] [--watch]")
+            watch_interval = 5  # default
+    elif arg.startswith("--watch="):
+        watch_mode = True
+        interval_str = arg.split("=", 1)[1]
+        watch_interval = parse_time_interval(interval_str)
+    elif arg.startswith("--row="):
+        try:
+            start_row = int(arg.split("=")[1])
+            if start_row < 2:
+                print("ERROR: --row must be >= 2 (row 1 is the header)")
+                sys.exit(1)
+        except (ValueError, IndexError):
+            print("ERROR: Invalid --row format. Use --row=N where N is a number >= 2")
             sys.exit(1)
+    else:
+        print("Unknown option: {}".format(arg))
+        print("Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N] [--watch[=interval]]")
+        print("  --watch interval can be: 5s, 5m, 1h (default: 5s)")
+        sys.exit(1)
+    
+    i += 1
 
 if not SHEETNAME:
     raise ValueError("Missing SHEETNAME in environment variables")
@@ -307,7 +346,15 @@ def run_cleanup():
 
 # Main execution
 if watch_mode:
-    print(f"🔄 Watch mode enabled. Running {command} every 5 minutes. Press Ctrl+C to stop.")
+    # Format interval display
+    if watch_interval < 60:
+        interval_str = f"{watch_interval}s"
+    elif watch_interval < 3600:
+        interval_str = f"{watch_interval // 60}m"
+    else:
+        interval_str = f"{watch_interval // 3600}h"
+    
+    print(f"🔄 Watch mode enabled. Running {command} every {interval_str}. Press Ctrl+C to stop.")
     iteration = 1
     while True:
         try:
@@ -323,16 +370,16 @@ if watch_mode:
             elif command == "cleanup":
                 run_cleanup()
             
-            print("\n⏳ Waiting 5 minutes until next check...")
-            time.sleep(300)  # 5 minutes
+            print(f"\n⏳ Waiting {interval_str} until next check...")
+            time.sleep(watch_interval)
             iteration += 1
         except KeyboardInterrupt:
             print(f"\n\n🛑 Watch mode stopped by user. Total iterations: {iteration}")
             sys.exit(0)
         except Exception as e:
             print(f"\n❌ Error during iteration #{iteration}: {e}")
-            print("⏳ Retrying in 5 minutes...")
-            time.sleep(300)
+            print(f"⏳ Retrying in {interval_str}...")
+            time.sleep(watch_interval)
             iteration += 1
 else:
     # Single run

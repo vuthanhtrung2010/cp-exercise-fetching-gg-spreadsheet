@@ -88,7 +88,7 @@ If a student enters their **password** instead of their **username** in the Goog
 Collect submissions from the Google Sheet:
 
 ```bash
-python3 main.py collect [--first|--last] [--row=N] [--watch[=interval]]
+python3 main.py collect [--first|--last] [--row=N] [--watch[=interval]] [--contest-id=ID]
 ```
 
 **Options:**
@@ -98,6 +98,7 @@ python3 main.py collect [--first|--last] [--row=N] [--watch[=interval]]
 - `--watch[=interval]`: Enable watch mode with custom interval (default: 5s)
   - Supports: `5s` (seconds), `5m` (minutes), `1h` (hours)
   - Can use `--watch=5m` or `--watch 5m` syntax
+- `--contest-id=ID`: Custom contest/exam ID for file naming (default: random number)
 
 **Examples:**
 ```bash
@@ -110,12 +111,14 @@ python3 main.py collect --watch      # Runs continuously, checking every 5 secon
 python3 main.py collect --watch=5m   # Watch mode with 5-minute interval
 python3 main.py collect --watch 10m  # Alternative syntax for 10-minute interval
 python3 main.py collect --watch=1h   # Watch mode with 1-hour interval
+python3 main.py collect --contest-id=EXAM2024  # Use custom contest ID instead of random number
 ```
 
 **What it does:**
 - Processes ALL submissions individually (no grouping)
 - Downloads code for submissions with date-format timestamps
-- Saves files to `BaiLam/` folder with format: `[random][StudentID][ProblemID].ext`
+- Saves files to `BaiLam/` folder with format: `[ID][StudentID][ProblemID].ext`
+  - ID is either the custom `--contest-id` or a random number (1 to 1,000,000,000)
 - Updates timestamps to UNIX format to mark as collected
 - Supported languages: C/C++ (.cpp), Python (.py)
 
@@ -188,11 +191,15 @@ python3 main.py cleanup --watch=1h           # 1 hour
 
 Collected submissions are saved in:
 ```
-BaiLam/[random_number][StudentID][ProblemID].ext
+BaiLam/[ID][StudentID][ProblemID].ext
 ```
 
 Where:
-- `random_number`: Random number from 1 to 1e9
+- `ID`: Contest/exam ID (custom via `--contest-id` or random number 1 to 1,000,000,000)
 - `StudentID`: Student identifier from sheet
-- `ProblemID`: Problem/exercise identifier
+- `ProblemID`: Problem/exercise identifier (uppercase)
 - `ext`: File extension based on language (cpp, py, etc.)
+
+**Examples:**
+- With `--contest-id=FINAL2024`: `BaiLam/[FINAL2024][student1][KNIGHTGAME].cpp`
+- Without contest ID: `BaiLam/[748392156][student1][KNIGHTGAME].cpp`

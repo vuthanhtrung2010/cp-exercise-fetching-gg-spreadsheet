@@ -37,10 +37,11 @@ def parse_time_interval(time_str):
     elif unit == 'h':
         return int(value * 3600)
 
-# Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N] [--watch[=interval]]
+# Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N] [--watch[=interval]] [--contest-id=ID]
 if len(sys.argv) < 2 or sys.argv[1] not in ["collect", "cleanup"]:
-    print("Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N] [--watch[=interval]]")
+    print("Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N] [--watch[=interval]] [--contest-id=ID]")
     print("  --watch interval can be: 5s, 5m, 1h (default: 5s)")
+    print("  --contest-id: Custom contest ID (default: random number)")
     sys.exit(1)
 
 command = sys.argv[1]
@@ -48,6 +49,7 @@ sub_order = "last"  # default
 start_row = 2  # default (skip header at row 1)
 watch_mode = False  # default
 watch_interval = 5  # default 5 seconds
+contest_id = None  # default None (will generate random)
 
 # Parse optional arguments
 i = 2
@@ -79,10 +81,16 @@ while i < len(sys.argv):
         except (ValueError, IndexError):
             print("ERROR: Invalid --row format. Use --row=N where N is a number >= 2")
             sys.exit(1)
+    elif arg.startswith("--contest-id="):
+        contest_id = arg.split("=", 1)[1].strip()
+        if not contest_id:
+            print("ERROR: --contest-id cannot be empty")
+            sys.exit(1)
     else:
         print("Unknown option: {}".format(arg))
-        print("Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N] [--watch[=interval]]")
+        print("Usage: python3 main.py <collect|cleanup> [--first|--last] [--row=N] [--watch[=interval]] [--contest-id=ID]")
         print("  --watch interval can be: 5s, 5m, 1h (default: 5s)")
+        print("  --contest-id: Custom contest ID (default: random number)")
         sys.exit(1)
     
     i += 1
@@ -145,6 +153,13 @@ print(f"Column indices: timestamp={idx_timestamp}, sbd={idx_sbd}, lang={idx_lang
 # Track last checked timestamp for incremental processing
 last_checked_timestamp = 0
 
+# Set file_id once (either custom contest_id or random)
+file_id = contest_id if contest_id else random.randint(1, int(1e9))
+if contest_id:
+    print(f"Using contest ID: {file_id}")
+else:
+    print(f"Using random ID: {file_id}")
+
 # Read users.txt file and load it into a dict
 # Also create reverse mapping: password -> username
 users = {}  # username -> password
@@ -175,10 +190,7 @@ def run_collect(incremental=False):
     Args:
         incremental: If True, only process rows with timestamp > last_checked_timestamp
     """
-    global last_checked_timestamp
-    
-    # Generate a random number at program starts
-    random_number = random.randint(1, int(1e9))
+    global last_checked_timestamp, file_id
 
     # Clear old folder before collect subs
     # if os.path.exists("BaiLam"):
@@ -278,7 +290,7 @@ def run_collect(incremental=False):
     batch_updates = []
     
     for dt, row_num, sbd, actual_username, mabai, ext, code in submissions:
-        filename = f"[{random_number}][{actual_username}][{mabai}].{ext}"
+        filename = f"[{file_id}][{actual_username}][{mabai}].{ext}"
         filepath = os.path.join("BaiLam", filename)
         
         if sub_order == "first":
@@ -450,7 +462,7 @@ if watch_mode:
         interval_str = f"{watch_interval // 3600}h"
     
     print(f"🔄 Watch mode enabled. Running {command} every {interval_str}. Press Ctrl+C to stop.")
-    print(f"🚀 Using incremental mode for better performance")
+    print("🚀 Using incremental mode for better performance")
     iteration = 1
     
     # First run - full scan
